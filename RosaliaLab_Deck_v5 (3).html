@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rosália Lab — v5</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --blue:#149AFF;--purple:#8F2BEE;--deep:#5D0098;
+  --gold:#F9B60D;--dark:#080818;--light:#F4F4F4;
+  --muted:rgba(244,244,244,0.5);--card:rgba(255,255,255,0.045);
+  --border:rgba(255,255,255,0.08);--green:#22c55e;--red:#ef4444;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Poppins',sans-serif;background:var(--dark);color:var(--light);}
+
+#bgCanvas{position:fixed;inset:0;z-index:0;}
+.grain{position:fixed;inset:0;z-index:1;opacity:.025;pointer-events:none;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+
+/* PROGRESS */
+.progress{position:fixed;top:0;left:0;height:3px;width:0;background:linear-gradient(90deg,var(--blue),var(--purple),var(--gold));z-index:300;transition:width .6s cubic-bezier(.4,0,.2,1);box-shadow:0 0 12px rgba(20,154,255,.6);}
+
+/* LOGO */
+.logo{position:fixed;top:22px;left:28px;z-index:200;display:flex;align-items:center;gap:9px;}
+.logo svg{width:24px;height:24px;}
+.logo-text{font-size:14px;font-weight:700;letter-spacing:-.02em;}
+.logo-text span{background:linear-gradient(90deg,var(--blue),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.hint{position:fixed;top:26px;right:26px;z-index:200;font-size:10px;color:var(--muted);display:flex;gap:5px;align-items:center;}
+.key{background:var(--card);border:1px solid var(--border);border-radius:3px;padding:1px 6px;font-size:10px;}
+
+/* SLIDES */
+.deck{position:relative;width:100%;height:100%;}
+.slide{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:56px 80px;opacity:0;pointer-events:none;z-index:10;transition:opacity .55s cubic-bezier(.4,0,.2,1),transform .55s cubic-bezier(.4,0,.2,1);}
+.slide:not(.active){transform:translateX(32px);}
+.slide.active{opacity:1;pointer-events:all;transform:translateX(0);}
+.slide.exit{opacity:0!important;transform:translateX(-32px)!important;transition:opacity .35s ease,transform .35s ease;}
+.slide>*{position:relative;z-index:2;}
+
+/* NAV */
+.nav{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;background:rgba(8,8,24,.88);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:100px;padding:8px 16px;z-index:200;}
+.nbtn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--light);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .2s;}
+.nbtn:hover:not(:disabled){background:var(--purple);border-color:var(--purple);}
+.nbtn:disabled{opacity:.2;cursor:default;}
+.ndots{display:flex;gap:5px;align-items:center;}
+.ndot{width:5px;height:5px;border-radius:50%;background:var(--border);cursor:pointer;transition:all .3s;}
+.ndot.on{background:var(--blue);width:16px;border-radius:3px;}
+.ncnt{font-size:11px;font-weight:600;color:var(--muted);min-width:44px;text-align:center;}
+.ncnt b{color:var(--light);}
+
+/* TYPOGRAPHY */
+.lbl{font-size:10px;font-weight:600;letter-spacing:3.5px;text-transform:uppercase;color:var(--blue);margin-bottom:14px;}
+h1{font-size:clamp(2.4rem,4.5vw,4.2rem);font-weight:800;line-height:1.08;letter-spacing:-.035em;text-align:center;margin-bottom:18px;}
+h1 .b{color:var(--blue);}h1 .p{color:var(--purple);}h1 .g{color:var(--gold);}
+h2{font-size:clamp(1.5rem,2.6vw,2.2rem);font-weight:700;line-height:1.15;letter-spacing:-.025em;text-align:center;margin-bottom:12px;}
+h2 .b{color:var(--blue);}h2 .g{color:var(--gold);}h2 .p{color:var(--purple);}
+.sub{font-size:.92rem;font-weight:300;line-height:1.7;color:var(--muted);text-align:center;max-width:600px;}
+.sub strong{color:var(--light);font-weight:600;}
+.divider{width:44px;height:3px;background:linear-gradient(90deg,var(--blue),var(--purple));border-radius:2px;margin:0 auto 20px;}
+
+/* MORPH ORB */
+.morph-orb{position:absolute;border-radius:60% 40% 30% 70%/60% 30% 70% 40%;filter:blur(70px);opacity:.18;pointer-events:none;z-index:0;animation:morph 8s ease-in-out infinite;}
+@keyframes morph{0%,100%{border-radius:60% 40% 30% 70%/60% 30% 70% 40%;}25%{border-radius:30% 60% 70% 40%/50% 60% 30% 60%;}50%{border-radius:50% 60% 30% 40%/30% 40% 70% 60%;}75%{border-radius:40% 50% 60% 30%/70% 30% 50% 40%;}}
+
+/* ANIMATIONS */
+.slide.active .fu{animation:fadeUp .65s cubic-bezier(.16,1,.3,1) both;}
+.slide.active .fl{animation:fadeLeft .6s cubic-bezier(.16,1,.3,1) both;}
+.slide.active .fr{animation:fadeRight .6s cubic-bezier(.16,1,.3,1) both;}
+.slide.active .si{animation:scaleIn .5s cubic-bezier(.34,1.56,.64,1) both;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(26px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fadeLeft{from{opacity:0;transform:translateX(-26px);}to{opacity:1;transform:translateX(0);}}
+@keyframes fadeRight{from{opacity:0;transform:translateX(26px);}to{opacity:1;transform:translateX(0);}}
+@keyframes scaleIn{from{opacity:0;transform:scale(.82);}to{opacity:1;transform:scale(1);}}
+.d1{animation-delay:.06s!important;}.d2{animation-delay:.16s!important;}.d3{animation-delay:.26s!important;}
+.d4{animation-delay:.36s!important;}.d5{animation-delay:.46s!important;}.d6{animation-delay:.56s!important;}
+.d7{animation-delay:.66s!important;}.d8{animation-delay:.76s!important;}.d9{animation-delay:.86s!important;}
+
+/* ══════════════════════════════════════
+   S1 — CAPA
+══════════════════════════════════════ */
+#s1{text-align:center;}
+.s1-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(249,182,13,.1);border:1px solid rgba(249,182,13,.25);border-radius:100px;padding:6px 18px;font-size:11px;font-weight:500;color:var(--gold);margin-bottom:26px;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--gold);animation:blink 1.8s infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.2;}}
+#s1 h1{font-size:clamp(2.8rem,5.5vw,5rem);}
+.s1-line{width:0;height:2px;background:linear-gradient(90deg,transparent,var(--blue),var(--purple),transparent);margin:18px auto;animation:none;}
+.slide.active .s1-line{animation:expandLine .9s .5s cubic-bezier(.4,0,.2,1) forwards;}
+@keyframes expandLine{to{width:340px;}}
+
+/* ══════════════════════════════════════
+   S2 — OPORTUNIDADE (radar animado)
+══════════════════════════════════════ */
+#s2{padding:48px 70px;}
+#s2 .opp-wrap{display:grid;grid-template-columns:1fr 240px;gap:32px;max-width:920px;width:100%;margin-top:24px;align-items:center;}
+#s2 .opp-cards{display:flex;flex-direction:column;gap:12px;}
+.opp-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px 20px;display:flex;gap:14px;align-items:flex-start;position:relative;overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s;}
+.opp-card:hover{transform:translateX(5px);border-color:rgba(20,154,255,.4);box-shadow:0 8px 28px rgba(20,154,255,.1);}
+.opp-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,var(--blue),var(--purple));opacity:0;transition:opacity .25s;}
+.opp-card:hover::before{opacity:1;}
+.opp-ico{font-size:22px;flex-shrink:0;margin-top:2px;}
+.opp-body h3{font-size:.88rem;font-weight:700;margin-bottom:4px;}
+.opp-body p{font-size:.76rem;color:var(--muted);line-height:1.5;}
+
+/* radar */
+.radar-wrap{display:flex;align-items:center;justify-content:center;}
+#radarCanvas{border-radius:50%;}
+
+/* ══════════════════════════════════════
+   S3 — MEDOS
+══════════════════════════════════════ */
+#s3 .fears{display:flex;flex-direction:column;gap:11px;margin-top:26px;max-width:700px;width:100%;}
+.fear{display:flex;gap:16px;align-items:flex-start;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:15px 20px;transition:transform .25s,border-color .25s;cursor:default;}
+.fear:hover{transform:translateX(6px);border-color:rgba(143,43,238,.4);}
+.fear-ico{font-size:20px;flex-shrink:0;margin-top:1px;}
+.fear-txt{font-size:.85rem;color:rgba(244,244,244,.8);line-height:1.5;}
+.fear-txt strong{color:var(--light);font-weight:600;display:block;margin-bottom:2px;}
+
+/* ══════════════════════════════════════
+   S4 — TRANSFORMAÇÃO (reimaginado: mercado vs. posição da marca)
+══════════════════════════════════════ */
+#s4 .tf-wrap{display:grid;grid-template-columns:1fr 60px 1fr;gap:14px;margin-top:28px;max-width:820px;width:100%;align-items:center;}
+.tf-col{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:24px;}
+.tf-col.now{border-color:rgba(239,68,68,.18);background:rgba(239,68,68,.03);}
+.tf-col.future{border-color:rgba(20,154,255,.22);background:rgba(20,154,255,.04);}
+.tf-tag{font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:14px;}
+.now .tf-tag{color:var(--red);}.future .tf-tag{color:var(--blue);}
+.tf-col ul{list-style:none;}
+.tf-col ul li{font-size:.8rem;color:var(--muted);padding:7px 0 7px 16px;position:relative;border-bottom:1px solid var(--border);line-height:1.4;}
+.tf-col ul li:last-child{border-bottom:none;}
+.tf-col ul li::before{content:'';position:absolute;left:0;top:13px;width:7px;height:7px;border-radius:50%;}
+.now ul li::before{background:var(--red);}.future ul li::before{background:var(--blue);}
+.arr-mid{width:60px;height:60px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,var(--blue),var(--purple));display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 30px rgba(20,154,255,.35),0 0 60px rgba(143,43,238,.2);animation:pglow 2.5s infinite;}
+@keyframes pglow{0%,100%{box-shadow:0 0 30px rgba(20,154,255,.35),0 0 60px rgba(143,43,238,.2);}50%{box-shadow:0 0 50px rgba(20,154,255,.6),0 0 80px rgba(143,43,238,.4);}}
+
+/* ══════════════════════════════════════
+   S5 — CASES
+══════════════════════════════════════ */
+#s5{padding:34px 54px;}
+#s5 .cases{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:22px;max-width:860px;width:100%;}
+.case{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;text-align:left;position:relative;overflow:hidden;transition:transform .25s,box-shadow .25s;}
+.case:hover{transform:translateY(-4px);box-shadow:0 20px 40px rgba(0,0,0,.3);}
+.case::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--blue),var(--purple));}
+.ctag{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--blue);margin-bottom:4px;}
+.cname{font-size:1.05rem;font-weight:800;margin-bottom:2px;}
+.cdesc{font-size:.72rem;color:var(--muted);margin-bottom:12px;font-style:italic;}
+.mets{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;}
+.met{background:rgba(255,255,255,.04);border-radius:9px;padding:9px 11px;}
+.met-v{font-size:1.05rem;font-weight:800;color:var(--green);}
+.met-v.bl{color:var(--blue);}
+.met-l{font-size:.65rem;color:var(--muted);margin-top:1px;}
+
+/* ══════════════════════════════════════
+   S6 — ESPELHO (novo — momento de projeção)
+══════════════════════════════════════ */
+#s6{text-align:center;}
+.mirror-ring{
+  position:relative;width:280px;height:280px;margin:0 auto 32px;
+  animation:fu .8s .2s cubic-bezier(.16,1,.3,1) both;
+}
+.slide.active .mirror-ring{animation:fadeUp .8s .2s cubic-bezier(.16,1,.3,1) both;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(26px);}to{opacity:1;transform:translateY(0);}}
+.ring{position:absolute;border-radius:50%;border:1px solid rgba(20,154,255,.2);top:50%;left:50%;transform:translate(-50%,-50%);}
+.ring-1{width:280px;height:280px;animation:ringPulse 3s ease-in-out infinite;}
+.ring-2{width:210px;height:210px;animation:ringPulse 3s .6s ease-in-out infinite;}
+.ring-3{width:140px;height:140px;animation:ringPulse 3s 1.2s ease-in-out infinite;}
+@keyframes ringPulse{0%,100%{opacity:.2;transform:translate(-50%,-50%) scale(1);}50%{opacity:.5;transform:translate(-50%,-50%) scale(1.04);}}
+.mirror-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;}
+.mirror-brand{font-size:2.2rem;font-weight:800;letter-spacing:-.04em;line-height:1;}
+.mirror-sub{font-size:.78rem;color:var(--muted);margin-top:6px;font-weight:300;}
+.mirror-q{
+  font-size:clamp(1.4rem,2.5vw,2.2rem);font-weight:700;line-height:1.25;
+  letter-spacing:-.02em;max-width:640px;text-align:center;
+  color:rgba(244,244,244,.9);
+}
+.mirror-q .hl{color:var(--blue);}
+.mirror-caption{margin-top:20px;font-size:.88rem;color:var(--muted);font-weight:300;}
+.mirror-caption strong{color:var(--light);}
+
+/* ══════════════════════════════════════
+   S7 — POR QUÊ ROSÁLIA
+══════════════════════════════════════ */
+#s7 .why{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:28px;max-width:860px;width:100%;}
+.wcard{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px 18px;position:relative;overflow:hidden;transition:transform .3s,border-color .3s;}
+.wcard:hover{transform:translateY(-4px);border-color:rgba(143,43,238,.4);}
+.wcard-glow{position:absolute;width:110px;height:110px;border-radius:50%;filter:blur(45px);opacity:0;top:-28px;right:-28px;background:var(--purple);transition:opacity .3s;}
+.wcard:hover .wcard-glow{opacity:.22;}
+.wico{font-size:24px;margin-bottom:11px;}
+.wcard h3{font-size:.85rem;font-weight:700;margin-bottom:6px;}
+.wcard p{font-size:.75rem;color:var(--muted);line-height:1.55;}
+
+/* ══════════════════════════════════════
+   S8 — INFINITO
+══════════════════════════════════════ */
+#s8{padding:30px 54px 24px;}
+#s8 .inf-header{text-align:center;}
+#s8 .inf-lbl{font-size:10px;font-weight:600;letter-spacing:3.5px;text-transform:uppercase;color:var(--blue);margin-bottom:8px;}
+#s8 h2{font-size:clamp(1.4rem,2.3vw,2rem);margin-bottom:0;}
+#s8 .main{display:grid;grid-template-columns:1fr 280px 1fr;gap:16px;width:100%;max-width:1040px;margin-top:18px;align-items:center;}
+.col-lbl{font-size:9px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:7px;}
+.col-lbl.blue{color:var(--blue);}.col-lbl.red{color:var(--red);}.col-lbl.right{text-align:right;}
+.inf-items{display:flex;flex-direction:column;gap:7px;}
+.inf-item{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 13px;position:relative;overflow:hidden;transition:transform .25s,border-color .25s;cursor:default;}
+.inf-item:hover{transform:translateX(4px);border-color:rgba(20,154,255,.4);}
+.inf-item.right:hover{transform:translateX(-4px);border-color:rgba(239,68,68,.3);}
+.inf-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,var(--blue),var(--purple));opacity:0;transition:opacity .25s;}
+.inf-item:hover::before{opacity:1;}
+.inf-item.right::before{left:auto;right:0;background:linear-gradient(to bottom,var(--red),rgba(239,68,68,.3));}
+.inf-ico{width:30px;height:30px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;background:rgba(20,154,255,.1);border:1px solid rgba(20,154,255,.18);}
+.inf-item.right .inf-ico{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.18);order:2;}
+.inf-body{flex:1;}
+.inf-item.right .inf-body{order:1;text-align:right;}
+.inf-title{font-size:.72rem;font-weight:700;color:var(--light);line-height:1.2;}
+.inf-sub{font-size:.63rem;color:var(--muted);margin-top:1px;}
+.col-left-wrap .inf-item:nth-child(1){animation:fadeLeft .5s .16s cubic-bezier(.16,1,.3,1) both;}
+.col-left-wrap .inf-item:nth-child(2){animation:fadeLeft .5s .24s cubic-bezier(.16,1,.3,1) both;}
+.col-left-wrap .inf-item:nth-child(3){animation:fadeLeft .5s .32s cubic-bezier(.16,1,.3,1) both;}
+.col-left-wrap .inf-item:nth-child(4){animation:fadeLeft .5s .40s cubic-bezier(.16,1,.3,1) both;}
+.col-left-wrap .inf-item:nth-child(5){animation:fadeLeft .5s .48s cubic-bezier(.16,1,.3,1) both;}
+.col-right-wrap .inf-item:nth-child(1){animation:fadeRight .5s .16s cubic-bezier(.16,1,.3,1) both;}
+.col-right-wrap .inf-item:nth-child(2){animation:fadeRight .5s .24s cubic-bezier(.16,1,.3,1) both;}
+.col-right-wrap .inf-item:nth-child(3){animation:fadeRight .5s .32s cubic-bezier(.16,1,.3,1) both;}
+.col-right-wrap .inf-item:nth-child(4){animation:fadeRight .5s .40s cubic-bezier(.16,1,.3,1) both;}
+.col-right-wrap .inf-item:nth-child(5){animation:fadeRight .5s .48s cubic-bezier(.16,1,.3,1) both;}
+.inf-center{display:flex;flex-direction:column;align-items:center;gap:9px;animation:scaleIn .7s .1s cubic-bezier(.16,1,.3,1) both;}
+.center-tag{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;text-align:center;}
+.center-tag.blue{color:var(--blue);}.center-tag.red{color:var(--red);}
+.inf-wrap{position:relative;width:240px;height:120px;}
+.inf-wrap svg{width:100%;height:100%;filter:drop-shadow(0 0 12px rgba(20,154,255,.5)) drop-shadow(0 0 24px rgba(143,43,238,.3));}
+.traveller{position:absolute;width:9px;height:9px;border-radius:50%;background:white;box-shadow:0 0 10px rgba(255,255,255,.9),0 0 20px var(--blue);transform:translate(-50%,-50%);pointer-events:none;}
+.inf-badge{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);}
+.inf-badge-icon{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--purple));display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 22px rgba(20,154,255,.5),0 0 44px rgba(143,43,238,.25);animation:iblink 2.5s ease-in-out infinite;}
+@keyframes iblink{0%,100%{box-shadow:0 0 22px rgba(20,154,255,.5),0 0 44px rgba(143,43,238,.25);}50%{box-shadow:0 0 38px rgba(20,154,255,.8),0 0 64px rgba(143,43,238,.5);}}
+
+/* ══════════════════════════════════════
+   S9 — ENTREGAS (grid 3x3)
+══════════════════════════════════════ */
+#s9{padding:32px 64px;}
+#s9 .del-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;max-width:960px;width:100%;margin-top:22px;}
+.del-card{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:16px 15px;position:relative;overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s;cursor:default;}
+.del-card:hover{transform:translateY(-4px);border-color:rgba(20,154,255,.32);box-shadow:0 10px 28px rgba(20,154,255,.09);}
+.del-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--blue),var(--purple));opacity:0;transition:opacity .25s;}
+.del-card:hover::before{opacity:1;}
+.del-glow{position:absolute;width:90px;height:90px;border-radius:50%;filter:blur(36px);opacity:0;top:-18px;right:-18px;background:var(--blue);transition:opacity .3s;}
+.del-card:hover .del-glow{opacity:.12;}
+.del-ico{font-size:20px;margin-bottom:8px;}
+.del-card h3{font-size:.78rem;font-weight:700;margin-bottom:4px;line-height:1.3;}
+.del-card p{font-size:.68rem;color:var(--muted);line-height:1.5;}
+.slide.active .del-card:nth-child(1){animation:fadeUp .5s .12s cubic-bezier(.16,1,.3,1) both;}
+.slide.active .del-card:nth-child(2){animation:fadeUp .5s .20s cubic-bezier(.16,1,.3,1) both;}
+.slide.active .del-card:nth-child(3){animation:fadeUp .5s .28s cubic-bezier(.16,1,.3,1) both;}
+.slide.active .del-card:nth-child(4){animation:fadeUp .5s .36s cubic-bezier(.16,1,.3,1) both;}
+.slide.active .del-card:nth-child(5){animation:fadeUp .5s .44s cubic-bezier(.16,1,.3,1) both;}
+.slide.active .del-card:nth-child(6){animation:fadeUp .5s .52s cubic-bezier(.16,1,.3,1) both;}
+.slide.active .del-card:nth-child(7){animation:fadeUp .5s .60s cubic-bezier(.16,1,.3,1) both;}
+.slide.active .del-card:nth-child(8){animation:fadeUp .5s .68s cubic-bezier(.16,1,.3,1) both;}
+.slide.active .del-card:nth-child(9){animation:fadeUp .5s .76s cubic-bezier(.16,1,.3,1) both;}
+.del-bottom{margin-top:13px;max-width:960px;width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(20,154,255,.06);border:1px solid rgba(20,154,255,.14);border-radius:9px;padding:9px 18px;animation:fadeUp .5s .85s cubic-bezier(.16,1,.3,1) both;}
+.del-bottom p{font-size:.74rem;color:rgba(244,244,244,.6);text-align:center;}
+.del-bottom strong{color:var(--blue);}
+
+/* ══════════════════════════════════════
+   S10 — SILÊNCIO (novo)
+══════════════════════════════════════ */
+#s10{text-align:center;}
+.silence-wrap{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;}
+.silence-line{
+  font-size:clamp(2.4rem,5vw,4.4rem);font-weight:800;
+  letter-spacing:-.04em;line-height:1.05;text-align:center;
+  background:linear-gradient(135deg,var(--light) 0%,rgba(244,244,244,.6) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.silence-line .hl{background:linear-gradient(90deg,var(--blue),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+.silence-caption{font-size:.9rem;color:var(--muted);font-weight:300;letter-spacing:.02em;}
+/* floating triangles */
+.tri{position:absolute;opacity:0;pointer-events:none;}
+.slide.active .tri{animation:triFly 1.2s cubic-bezier(.16,1,.3,1) both;}
+.tri svg{width:100%;height:100%;}
+/* glitch line */
+.glitch-bar{width:0;height:2px;background:linear-gradient(90deg,transparent,var(--blue),var(--purple),var(--gold),transparent);margin:0 auto;border-radius:2px;}
+.slide.active .glitch-bar{animation:expandLine .9s .6s cubic-bezier(.4,0,.2,1) forwards;}
+@keyframes expandLine{to{width:480px;}}
+@keyframes triFly{from{opacity:0;transform:translateY(30px) rotate(-10deg);}to{opacity:1;transform:translateY(0) rotate(0deg);}}
+
+/* ══════════════════════════════════════
+   S11 — ÂNCORA (reescrita: tempo, não dinheiro)
+══════════════════════════════════════ */
+#s11 .anchor-wrap{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;margin-top:28px;max-width:820px;width:100%;align-items:center;}
+.anc{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:26px;text-align:center;}
+.anc.bad{border-color:rgba(239,68,68,.22);background:rgba(239,68,68,.04);}
+.anc.good{border-color:rgba(20,154,255,.28);background:rgba(20,154,255,.05);}
+.atag{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;}
+.bad .atag{color:var(--red);}.good .atag{color:var(--blue);}
+.aval{font-size:2.4rem;font-weight:800;margin-bottom:6px;}
+.bad .aval{color:var(--red);}.good .aval{color:var(--blue);}
+.anc p{font-size:.78rem;color:var(--muted);line-height:1.6;max-width:none;text-align:center;}
+.vs{width:52px;height:52px;border-radius:50%;flex-shrink:0;background:linear-gradient(135deg,var(--purple),var(--blue));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;box-shadow:0 0 24px rgba(143,43,238,.4);}
+/* time cost bar */
+.time-bar-wrap{margin-top:12px;}
+.time-bar-label{font-size:.65rem;color:var(--muted);margin-bottom:4px;text-align:left;}
+.time-bar{height:5px;border-radius:3px;width:0;transition:width 1.2s cubic-bezier(.4,0,.2,1);}
+.time-bar.red-bar{background:linear-gradient(90deg,var(--red),rgba(239,68,68,.3));}
+.time-bar.blue-bar{background:linear-gradient(90deg,var(--blue),var(--purple));}
+
+/* ══════════════════════════════════════
+   S12 — INVESTIMENTO
+══════════════════════════════════════ */
+#s12 .inv{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:24px;max-width:780px;width:100%;}
+.icard{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:24px;}
+.icard.feat{background:rgba(143,43,238,.08);border-color:rgba(143,43,238,.35);position:relative;overflow:hidden;}
+.icard.feat::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--blue),var(--purple));}
+.ititle{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--blue);margin-bottom:14px;}
+.prow{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border);}
+.prow:last-of-type{border-bottom:none;}
+.ptier{font-size:.8rem;color:var(--muted);}
+.pcomm{font-size:.68rem;color:var(--blue);margin-top:2px;}
+.pval{font-size:.92rem;font-weight:700;}
+.payrow{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);}
+.payrow:last-of-type{border-bottom:none;}
+.paymode{font-size:.8rem;color:var(--muted);}
+.payval{font-size:.9rem;font-weight:700;}
+.payval.best{color:var(--green);}
+/* benefits reimagined */
+.benefits{margin-top:14px;display:flex;flex-direction:column;gap:7px;}
+.benefit-item{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;background:rgba(20,154,255,.05);border:1px solid rgba(20,154,255,.1);border-radius:8px;transition:border-color .2s;}
+.benefit-item:hover{border-color:rgba(20,154,255,.3);}
+.benefit-ico{font-size:14px;flex-shrink:0;margin-top:1px;}
+.benefit-txt{font-size:.72rem;color:var(--muted);line-height:1.4;}
+.benefit-txt strong{color:var(--light);display:block;font-weight:600;margin-bottom:1px;}
+
+/* ══════════════════════════════════════
+   S13 — CTA
+══════════════════════════════════════ */
+#s13{text-align:center;}
+.brand-pill{display:inline-flex;align-items:center;gap:8px;background:rgba(249,182,13,.08);border:1px solid rgba(249,182,13,.22);border-radius:100px;padding:6px 18px;font-size:11px;font-weight:500;color:var(--gold);margin-bottom:22px;}
+.brand-story{max-width:520px;margin:0 auto 20px;background:rgba(249,182,13,.06);border:1px solid rgba(249,182,13,.18);border-radius:14px;padding:16px 22px;font-size:.8rem;line-height:1.7;color:rgba(244,244,244,.65);}
+.brand-story strong{color:var(--gold);font-weight:600;}
+.cta-btn{display:inline-flex;align-items:center;gap:10px;background:linear-gradient(135deg,var(--blue),var(--purple));color:white;border:none;cursor:pointer;font-family:'Poppins',sans-serif;font-weight:700;font-size:.9rem;padding:15px 36px;border-radius:100px;margin-top:20px;box-shadow:0 0 32px rgba(20,154,255,.3);transition:transform .2s,box-shadow .2s;position:relative;overflow:hidden;}
+.cta-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.15),transparent);opacity:0;transition:opacity .2s;}
+.cta-btn:hover{transform:translateY(-3px);box-shadow:0 0 52px rgba(20,154,255,.55);}
+.cta-btn:hover::before{opacity:1;}
+.val-badge{display:inline-block;background:rgba(249,182,13,.09);border:1px solid rgba(249,182,13,.25);border-radius:10px;padding:8px 18px;margin-top:14px;font-size:.78rem;color:var(--gold);}
+.contacts{display:flex;gap:22px;justify-content:center;flex-wrap:wrap;margin-top:16px;}
+.ci{font-size:.78rem;color:var(--muted);display:flex;gap:5px;align-items:center;}
+.ci span{color:var(--blue);}
+.hash{font-size:.8rem;font-weight:700;color:var(--purple);margin-top:12px;letter-spacing:.06em;}
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+<div class="grain"></div>
+<div class="progress" id="prog"></div>
+
+<div class="logo">
+  <svg viewBox="0 0 40 40" fill="none">
+    <defs><linearGradient id="lg" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse"><stop offset="0%" stop-color="#149AFF"/><stop offset="100%" stop-color="#8F2BEE"/></linearGradient></defs>
+    <polygon points="6,4 38,20 6,36" fill="url(#lg)"/>
+  </svg>
+  <div class="logo-text">Rosália <span>Lab.</span></div>
+</div>
+<div class="hint"><span class="key">←</span><span class="key">→</span> navegar</div>
+
+<div class="deck">
+
+<!-- ══ S1 CAPA ══ -->
+<div class="slide active" id="s1">
+  <div class="morph-orb" style="width:500px;height:500px;background:var(--deep);top:-120px;right:-100px;animation-duration:9s;"></div>
+  <div class="morph-orb" style="width:360px;height:360px;background:var(--blue);bottom:-80px;left:-80px;animation-duration:11s;animation-delay:-4s;opacity:.12;"></div>
+  <div class="s1-badge fu d1"><div class="live-dot"></div>100% brasileiro · Força, resiliência e inteligência de mercado</div>
+  <h1 class="fu d2">Sua marca já<br><span class="b">provou que funciona.</span><br>O marketplace está<br><span class="p">esperando por ela.</span></h1>
+  <div class="s1-line"></div>
+  <p class="sub fu d4">Você construiu uma operação sólida no B2B, no varejo físico ou na distribuição.<br><strong>Agora é hora de abrir o maior canal de vendas do Brasil — do jeito certo.</strong></p>
+</div>
+
+<!-- ══ S2 OPORTUNIDADE + RADAR ══ -->
+<div class="slide" id="s2">
+  <div class="lbl fu d1">A oportunidade</div>
+  <h2 class="fu d2">Enquanto você não está<br><span class="b">no marketplace,</span> alguém está.</h2>
+  <div class="divider fu d2"></div>
+  <div class="opp-wrap">
+    <div class="opp-cards">
+      <div class="opp-card fu d3"><div class="opp-ico">🛒</div><div class="opp-body"><h3>O maior canal de vendas do Brasil</h3><p>ML, Shopee e TikTok Shop concentram +80% das transações online. Sua categoria já está lá — com ou sem você.</p></div></div>
+      <div class="opp-card fu d4"><div class="opp-ico">📦</div><div class="opp-body"><h3>Produto validado é vantagem real</h3><p>Quem entra com marca consolidada parte na frente. Não precisa validar — só posicionar corretamente.</p></div></div>
+      <div class="opp-card fu d5"><div class="opp-ico">⚠️</div><div class="opp-body"><h3>Entrar errado custa mais caro</h3><p>Precificação errada, Ads sem estratégia. A entrada mal feita queima caixa e arranha a reputação.</p></div></div>
+    </div>
+    <div class="radar-wrap fu d4">
+      <canvas id="radarCanvas" width="200" height="200"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S3 MEDOS ══ -->
+<div class="slide" id="s3">
+  <div class="lbl fu d1">Reconhece esse cenário?</div>
+  <h2 class="fu d2">O que passa pela cabeça<br>de quem ainda <span class="b">não entrou</span></h2>
+  <div class="divider fu d2"></div>
+  <div class="fears">
+    <div class="fear fu d3"><div class="fear-ico">💰</div><div class="fear-txt"><strong>"E se eu precificar errado e destruir minha margem logo de entrada?"</strong>Marketplace tem taxas, fretes e comissões que quem não conhece o jogo não enxerga.</div></div>
+    <div class="fear fu d4"><div class="fear-ico">🏷️</div><div class="fear-txt"><strong>"E se eu canibalizar meu canal físico ou meus distribuidores?"</strong>Sem estratégia, o marketplace vira concorrente interno da sua própria marca.</div></div>
+    <div class="fear fu d5"><div class="fear-ico">🌀</div><div class="fear-txt"><strong>"Marketplace parece uma caixa preta. Não sei por onde começar."</strong>Algoritmo, SEO, Ads, catálogo — é um ecossistema que exige quem já vive dentro.</div></div>
+    <div class="fear fu d6"><div class="fear-ico">⏳</div><div class="fear-txt"><strong>"Não tenho tempo nem equipe para aprender tudo do zero."</strong>Você construiu um negócio real. Seu tempo vale mais do que curva de aprendizado.</div></div>
+  </div>
+</div>
+
+<!-- ══ S4 TRANSFORMAÇÃO (reimaginada) ══ -->
+<div class="slide" id="s4">
+  <div class="lbl fu d1">O que muda</div>
+  <h2 class="fu d2">Onde sua marca está <span class="b">hoje</span><br>e onde ela pode <span class="g">estar amanhã</span></h2>
+  <div class="divider fu d2"></div>
+  <div class="tf-wrap">
+    <div class="tf-col now fl d3">
+      <div class="tf-tag">📍 O mercado hoje, sem você</div>
+      <ul>
+        <li>Seus concorrentes ganham clientes que deveriam ser seus</li>
+        <li>Sua marca invisível no maior canal de compras do Brasil</li>
+        <li>Cada mês é território que vai custar 3x mais para recuperar</li>
+        <li>Seu produto já está lá — mas vendido por outro</li>
+        <li>A reputação do canal sendo construída por concorrentes</li>
+      </ul>
+    </div>
+    <div class="arr-mid si d4">→</div>
+    <div class="tf-col future fu d5">
+      <div class="tf-tag">🚀 Com sua marca estruturada</div>
+      <ul>
+        <li>Presença dominante na sua categoria com estratégia</li>
+        <li>Pricing protegido — canal digital e físico coexistindo</li>
+        <li>Cada real investido em Ads com retorno calculado</li>
+        <li>Reputação e posicionamento construídos do jeito certo</li>
+        <li>Um novo canal de receita que cresce todo mês</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S5 CASES ══ -->
+<div class="slide" id="s5">
+  <div class="lbl fu d1">Resultados reais</div>
+  <h2 class="fu d2">Quando a estrutura é certa,<br><span class="b">o resultado se repete.</span></h2>
+  <div class="divider fu d2"></div>
+  <div class="cases">
+    <div class="case fu d3">
+      <div class="ctag">Case 01 · Do zero · Mercado Livre</div><div class="cname">5Imports</div><div class="cdesc">Do zero a R$ 5,7M — operação construída com estratégia</div>
+      <div class="mets">
+        <div class="met"><div class="met-v counter-el" data-target="35" data-suffix="%">0%</div><div class="met-l">Crescimento YoY</div></div>
+        <div class="met"><div class="met-v bl">R$ 5,7M</div><div class="met-l">Faturamento anual</div></div>
+        <div class="met"><div class="met-v counter-el" data-target="25" data-suffix="%">0%</div><div class="met-l">Margem de contribuição</div></div>
+        <div class="met"><div class="met-v counter-el" data-prefix="+" data-target="10.8" data-suffix="%" data-dec="1">0%</div><div class="met-l">Crescimento de visitas</div></div>
+      </div>
+    </div>
+    <div class="case fu d4">
+      <div class="ctag">Case 02 · Recuperação · ML + Shopee</div><div class="cname">Mardek Náutica</div><div class="cdesc">De operação à beira da falência a negócio lucrativo</div>
+      <div class="mets">
+        <div class="met"><div class="met-v counter-el" data-target="134" data-suffix="%">0%</div><div class="met-l">Crescimento</div></div>
+        <div class="met"><div class="met-v bl">R$ 2,1M</div><div class="met-l">Faturamento</div></div>
+        <div class="met"><div class="met-v counter-el" data-target="35" data-suffix="%">0%</div><div class="met-l">Margem de contribuição</div></div>
+        <div class="met"><div class="met-v counter-el" data-prefix="+" data-target="185" data-suffix="%">0%</div><div class="met-l">Crescimento de visitas</div></div>
+      </div>
+    </div>
+    <div class="case fu d5">
+      <div class="ctag">Case 03 · Do zero · &lt; 1 ano</div><div class="cname">Osara</div><div class="cdesc">R$ 1,26M em menos de 12 meses de operação</div>
+      <div class="mets">
+        <div class="met"><div class="met-v counter-el" data-target="88" data-suffix="%">0%</div><div class="met-l">Crescimento</div></div>
+        <div class="met"><div class="met-v bl">R$ 1,26M</div><div class="met-l">Vendas brutas</div></div>
+        <div class="met"><div class="met-v counter-el" data-prefix="+" data-target="137" data-suffix="%">0%</div><div class="met-l">Unidades vendidas</div></div>
+        <div class="met"><div class="met-v counter-el" data-prefix="+" data-target="163" data-suffix="%">0%</div><div class="met-l">Visitas orgânicas</div></div>
+      </div>
+    </div>
+    <div class="case fu d6">
+      <div class="ctag">Case 04 · Performance Ads · ML</div><div class="cname">Wet Dreams</div><div class="cdesc">ACOS de 11% → 5,58% sem aumentar investimento</div>
+      <div class="mets">
+        <div class="met"><div class="met-v counter-el" data-prefix="" data-target="5.58" data-suffix="%" data-dec="2">0%</div><div class="met-l">ACOS (era 11%)</div></div>
+        <div class="met"><div class="met-v bl counter-el" data-prefix="" data-target="17.93" data-suffix="x" data-dec="2">0x</div><div class="met-l">ROAS atual</div></div>
+        <div class="met"><div class="met-v counter-el" data-prefix="+" data-target="83" data-suffix="%">0%</div><div class="met-l">Faturamento</div></div>
+        <div class="met"><div class="met-v">R$ 373k</div><div class="met-l">Receita em 90 dias</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S6 ESPELHO (novo) ══ -->
+<div class="slide" id="s6">
+  <div class="morph-orb" style="width:400px;height:400px;background:var(--blue);top:-80px;right:-60px;opacity:.1;animation-duration:10s;"></div>
+  <div class="morph-orb" style="width:300px;height:300px;background:var(--purple);bottom:-60px;left:-50px;opacity:.12;animation-duration:13s;animation-delay:-3s;"></div>
+
+  <div class="silence-wrap">
+    <div class="mirror-ring fu d1">
+      <div class="ring ring-1"></div>
+      <div class="ring ring-2"></div>
+      <div class="ring ring-3"></div>
+      <div class="mirror-center">
+        <div class="mirror-brand fu d2">✦ <span style="color:var(--blue)">Sua</span> marca</div>
+        <div class="mirror-sub fu d3">no maior canal do Brasil</div>
+      </div>
+    </div>
+
+    <div class="mirror-q fu d3">
+      Imagine um cliente procurando<br>
+      <span class="hl">exatamente o que você vende</span><br>
+      agora mesmo.
+    </div>
+    <div class="glitch-bar"></div>
+    <div class="mirror-caption fu d5">
+      <strong>Ele está comprando de alguém.</strong> Pode ser de você.
+    </div>
+  </div>
+</div>
+
+<!-- ══ S7 POR QUÊ ROSÁLIA ══ -->
+<div class="slide" id="s7">
+  <div class="lbl fu d1">Por que a Rosália Lab</div>
+  <h2 class="fu d2">Não é mais uma agência.<br><span class="b">É quem vive dentro do ecossistema.</span></h2>
+  <div class="divider fu d2"></div>
+  <div class="why">
+    <div class="wcard fu d3"><div class="wcard-glow"></div><div class="wico">🏅</div><h3>Certificação Silver ML</h3><p>Dados, suporte prioritário e acesso que agências comuns não têm.</p></div>
+    <div class="wcard fu d4"><div class="wcard-glow"></div><div class="wico">🔗</div><h3>Integrado ao ecossistema</h3><p>ML, Shopee, TikTok Shop, Bling, Tiny, Omie, TOTVS, Nubimetrics e mais.</p></div>
+    <div class="wcard fu d5"><div class="wcard-glow"></div><div class="wico">📊</div><h3>BI proprietário</h3><p>Pricing e curva ABC em tempo real. Decisão com dados — nunca no achismo.</p></div>
+    <div class="wcard fu d3" style="animation-delay:.36s"><div class="wcard-glow"></div><div class="wico">🎯</div><h3>Especialistas em entrada</h3><p>60% dos nossos clientes chegaram ao marketplace com marcas já consolidadas.</p></div>
+    <div class="wcard fu d4" style="animation-delay:.46s"><div class="wcard-glow"></div><div class="wico">🤝</div><h3>Parceria pelo resultado</h3><p>Comissão sobre faturamento. Se você não cresce, a gente não cresce.</p></div>
+    <div class="wcard fu d5" style="animation-delay:.56s"><div class="wcard-glow"></div><div class="wico">🦁</div><h3>DNA 100% brasileiro</h3><p>Como o mico-leão-dourado — força, resiliência e raiz brasileira.</p></div>
+  </div>
+</div>
+
+<!-- ══ S8 INFINITO ══ -->
+<div class="slide" id="s8">
+  <div class="inf-header fu d1">
+    <div class="inf-lbl">Uma operação completa</div>
+    <h2>Sem montar time. Sem improvisar.<br><span class="b">Sem desperdício.</span></h2>
+  </div>
+  <div class="main">
+    <div>
+      <div class="col-lbl blue">✦ O que você recebe</div>
+      <div class="inf-items col-left-wrap">
+        <div class="inf-item"><div class="inf-ico">🎯</div><div class="inf-body"><div class="inf-title">Direção estratégica contínua</div><div class="inf-sub">Rota comercial e decisões orientadas a resultado</div></div></div>
+        <div class="inf-item"><div class="inf-ico">📢</div><div class="inf-body"><div class="inf-title">Gestão de Ads com eficiência</div><div class="inf-sub">ACOS, ROAS e TACOS — cada real calculado</div></div></div>
+        <div class="inf-item"><div class="inf-ico">🔍</div><div class="inf-body"><div class="inf-title">SEO interno + engenharia de anúncios</div><div class="inf-sub">Algoritmo a seu favor. Mais orgânico</div></div></div>
+        <div class="inf-item"><div class="inf-ico">📊</div><div class="inf-body"><div class="inf-title">BI proprietário de dados</div><div class="inf-sub">Pricing e curva ABC em tempo real</div></div></div>
+        <div class="inf-item"><div class="inf-ico">🤝</div><div class="inf-body"><div class="inf-title">Um estrategista no seu negócio</div><div class="inf-sub">Não um ticket de suporte — presença real</div></div></div>
+      </div>
+    </div>
+    <div class="inf-center">
+      <div class="center-tag blue">você recebe</div>
+      <div class="inf-wrap">
+        <svg viewBox="0 0 240 120" fill="none">
+          <defs>
+            <linearGradient id="ig" x1="0" y1="0" x2="240" y2="0" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#149AFF"/><stop offset="50%" stop-color="#8F2BEE"/><stop offset="100%" stop-color="#149AFF"/>
+            </linearGradient>
+            <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <path id="infPath" d="M120,60 C120,35 151,13 182,13 C213,13 234,35 234,60 C234,85 213,107 182,107 C151,107 120,60 120,60 C120,60 89,13 58,13 C27,13 6,35 6,60 C6,85 27,107 58,107 C89,107 120,60 120,60Z" stroke="url(#ig)" stroke-width="3.5" fill="none" stroke-linecap="round" filter="url(#glow)"/>
+          <path d="M120,60 C120,35 151,13 182,13 C213,13 234,35 234,60 C234,85 213,107 182,107 C151,107 120,60 120,60 C120,60 89,13 58,13 C27,13 6,35 6,60 C6,85 27,107 58,107 C89,107 120,60 120,60Z" stroke="rgba(20,154,255,0.1)" stroke-width="9" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="traveller" id="dot"></div>
+        <div class="inf-badge"><div class="inf-badge-icon">🦁</div></div>
+      </div>
+      <div class="center-tag red">você elimina</div>
+    </div>
+    <div>
+      <div class="col-lbl red right">✦ O que você elimina</div>
+      <div class="inf-items col-right-wrap">
+        <div class="inf-item right"><div class="inf-body" style="text-align:right"><div class="inf-title">Gestor de tráfego pago</div><div class="inf-sub">R$ 3–6k/mês de salário ou freelancer</div></div><div class="inf-ico" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.18)">👤</div></div>
+        <div class="inf-item right"><div class="inf-body" style="text-align:right"><div class="inf-title">Analista de dados e BI</div><div class="inf-sub">Ferramenta + profissional: R$ 2–4k/mês</div></div><div class="inf-ico" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.18)">📉</div></div>
+        <div class="inf-item right"><div class="inf-body" style="text-align:right"><div class="inf-title">Consultoria de pricing</div><div class="inf-sub">Projetos pontuais que custam mais</div></div><div class="inf-ico" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.18)">💸</div></div>
+        <div class="inf-item right"><div class="inf-body" style="text-align:right"><div class="inf-title">Estrategista de SEO e catálogo</div><div class="inf-sub">Otimização incluída na operação</div></div><div class="inf-ico" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.18)">✍️</div></div>
+        <div class="inf-item right"><div class="inf-body" style="text-align:right"><div class="inf-title">Meses de tentativa e erro</div><div class="inf-sub">Curva de aprendizado que custa caixa</div></div><div class="inf-ico" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.18)">⏳</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S9 ENTREGAS ══ -->
+<div class="slide" id="s9">
+  <div class="lbl fu d1">O que colocamos na mesa</div>
+  <h2 class="fu d2">Isso é o que você vai <span class="b">sentir</span><br>a Rosália Lab fazendo parte do seu negócio.</h2>
+  <div class="divider fu d2"></div>
+  <div class="del-grid">
+    <div class="del-card"><div class="del-glow"></div><div class="del-ico">📢</div><h3>Campanhas de Ads gerenciadas</h3><p>Criação, otimização e monitoramento contínuo no ML, Shopee e TikTok Shop.</p></div>
+    <div class="del-card"><div class="del-glow"></div><div class="del-ico">🏷️</div><h3>Central de promoções</h3><p>Cupons, descontos, campanhas sazonais e exposição comercial estratégica.</p></div>
+    <div class="del-card"><div class="del-glow"></div><div class="del-ico">💰</div><h3>Precificação e canais</h3><p>Margem protegida sem conflito com seus canais físicos e distribuidores.</p></div>
+    <div class="del-card"><div class="del-glow"></div><div class="del-ico">🛒</div><h3>Ecossistema de marketplace</h3><p>Catálogo, reputação, estoque, integrações e fluxo de dados integrados.</p></div>
+    <div class="del-card"><div class="del-glow"></div><div class="del-ico">⭐</div><h3>Monitoramento de reputação</h3><p>Saúde da conta, avaliações e indicadores que impactam visibilidade.</p></div>
+    <div class="del-card"><div class="del-glow"></div><div class="del-ico">🔍</div><h3>Otimização de anúncios</h3><p>SEO, títulos e fichas técnicas calibradas para o algoritmo converter mais.</p></div>
+    <div class="del-card"><div class="del-glow"></div><div class="del-ico">🎨</div><h3>Direcionamento operacional</h3><p>Orientamos seu time em artes, vídeos, ERP, novos kits e lançamentos.</p></div>
+    <div class="del-card"><div class="del-glow"></div><div class="del-ico">🏪</div><h3>Loja Oficial e posicionamento</h3><p>Vitrine, Minha Página, BPP e posicionamento de marca no ecossistema.</p></div>
+    <div class="del-card"><div class="del-glow"></div><div class="del-ico">🔗</div><h3>Ecossistema de afiliados</h3><p>Estruturação e coordenação do canal de afiliados e criadores.</p></div>
+  </div>
+  <div class="del-bottom"><p>Operação contínua — <strong>não é projeto pontual, é parceria que não para.</strong></p></div>
+</div>
+
+<!-- ══ S10 SILÊNCIO (novo) ══ -->
+<div class="slide" id="s10">
+  <div class="morph-orb" style="width:450px;height:450px;background:var(--deep);top:-100px;right:-80px;opacity:.2;animation-duration:8s;"></div>
+  <div class="morph-orb" style="width:350px;height:350px;background:var(--blue);bottom:-70px;left:-60px;opacity:.1;animation-duration:12s;animation-delay:-3s;"></div>
+
+  <!-- floating triangles -->
+  <div class="tri" style="top:12%;left:8%;animation-delay:.3s"><svg width="32" height="32" viewBox="0 0 32 32"><polygon points="16,2 30,28 2,28" fill="none" stroke="rgba(20,154,255,.3)" stroke-width="1.5"/></svg></div>
+  <div class="tri" style="top:18%;right:10%;animation-delay:.5s"><svg width="20" height="20" viewBox="0 0 20 20"><polygon points="10,1 19,18 1,18" fill="none" stroke="rgba(143,43,238,.35)" stroke-width="1.5"/></svg></div>
+  <div class="tri" style="bottom:20%;left:12%;animation-delay:.7s"><svg width="24" height="24" viewBox="0 0 24 24"><polygon points="12,2 22,21 2,21" fill="none" stroke="rgba(249,182,13,.25)" stroke-width="1.5"/></svg></div>
+  <div class="tri" style="bottom:15%;right:8%;animation-delay:.4s"><svg width="18" height="18" viewBox="0 0 18 18"><polygon points="9,1 17,16 1,16" fill="none" stroke="rgba(20,154,255,.25)" stroke-width="1.5"/></svg></div>
+
+  <div class="silence-wrap">
+    <div class="silence-line fu d2">
+      Sua marca já<br>
+      esperou <span class="hl">tempo suficiente.</span>
+    </div>
+    <div class="glitch-bar"></div>
+    <div class="silence-caption fu d4">
+      Cada mês sem estrutura é território que seu concorrente está conquistando.<br>
+      E vai custar 3x mais para recuperar.
+    </div>
+  </div>
+</div>
+
+<!-- ══ S11 ÂNCORA (reescrita pelo tempo) ══ -->
+<div class="slide" id="s11">
+  <div class="lbl fu d1">O custo real da espera</div>
+  <h2 class="fu d2">O que você perde<br><span class="b">em cada mês sem estrutura</span></h2>
+  <div class="divider fu d2"></div>
+  <div class="anchor-wrap">
+    <div class="anc bad fu d3">
+      <div class="atag">❌ Sem a Rosália Lab</div>
+      <div class="aval">3–6 meses</div>
+      <p>de curva de aprendizado queimando caixa, reputação sendo construída por concorrentes e território perdido que não volta sozinho.</p>
+      <div class="time-bar-wrap">
+        <div class="time-bar-label">Meses desperdiçados</div>
+        <div class="time-bar red-bar" id="redBar"></div>
+      </div>
+    </div>
+    <div class="vs si d4">VS</div>
+    <div class="anc good fu d5">
+      <div class="atag">✅ Com a Rosália Lab</div>
+      <div class="aval">30 dias</div>
+      <p>para a operação estar estruturada, campanhas rodando, catálogo otimizado — pronta para crescer desde o primeiro mês.</p>
+      <div class="time-bar-wrap">
+        <div class="time-bar-label">Tempo para resultado</div>
+        <div class="time-bar blue-bar" id="blueBar"></div>
+      </div>
+    </div>
+  </div>
+  <p class="sub fu d6" style="margin-top:20px;font-size:.82rem;">
+    A pergunta certa não é <strong>"posso pagar pela assessoria?"</strong><br>
+    É <strong style="color:var(--blue)">"quanto estou perdendo por mês sem ela?"</strong>
+  </p>
+</div>
+
+<!-- ══ S12 INVESTIMENTO ══ -->
+<div class="slide" id="s12">
+  <div class="lbl fu d1">Investimento</div>
+  <h2 class="fu d2">Um modelo que cresce<br><span class="b">junto com você</span></h2>
+  <div class="divider fu d2"></div>
+  <div class="inv">
+    <div class="icard feat fu d3">
+      <div class="ititle">📈 Plano Evolutivo de Crescimento</div>
+      <div class="prow"><div><div class="ptier">Até R$ 150k/mês</div><div class="pcomm">+ 3% sobre faturamento</div></div><div class="pval">R$ 3.000/mês</div></div>
+      <div class="prow"><div><div class="ptier">R$ 150k → R$ 300k/mês</div><div class="pcomm">+ 4% sobre faturamento</div></div><div class="pval">R$ 2.500/mês</div></div>
+      <div class="prow"><div><div class="ptier">Acima de R$ 301k/mês</div><div class="pcomm">+ 5% sobre faturamento</div></div><div class="pval">R$ 1.000/mês</div></div>
+      <p style="font-size:.68rem;color:var(--muted);margin-top:10px;line-height:1.5;">Comissão sobre faturamento efetivo, já descontados cancelamentos e devoluções.</p>
+    </div>
+    <div class="icard fu d4">
+      <div class="ititle">🚀 Ativação Inicial da Operação</div>
+      <div class="payrow"><div class="paymode">💰 À vista</div><div class="payval best">R$ 6.800</div></div>
+      <div class="payrow"><div class="paymode">50% + 1x sem juros</div><div class="payval">R$ 8.000</div></div>
+      <div class="payrow"><div class="paymode">3x parcelado</div><div class="payval">R$ 10.000</div></div>
+      <div class="benefits">
+        <div class="benefit-item"><div class="benefit-ico">🚪</div><div class="benefit-txt"><strong>Você sai quando quiser</strong>30 dias de aviso — sem multa, sem burocracia</div></div>
+        <div class="benefit-item"><div class="benefit-ico">🔓</div><div class="benefit-txt"><strong>Sem lock-in</strong>A operação é sua — não fica refém de ninguém</div></div>
+        <div class="benefit-item"><div class="benefit-ico">📈</div><div class="benefit-txt"><strong>Modelo que se paga</strong>Nossa comissão só cresce se seu faturamento crescer</div></div>
+        <div class="benefit-item"><div class="benefit-ico">🦁</div><div class="benefit-txt"><strong>Um estrategista no seu negócio</strong>Não um ticket de suporte — presença e direção reais</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S13 CTA ══ -->
+<div class="slide" id="s13">
+  <div class="morph-orb" style="width:480px;height:480px;background:var(--deep);top:-100px;right:-80px;animation-duration:10s;"></div>
+  <div class="morph-orb" style="width:360px;height:360px;background:var(--blue);bottom:-70px;left:-60px;animation-duration:13s;animation-delay:-5s;opacity:.1;"></div>
+  <div class="brand-pill fu d1">🦁 Rosália Lab · #BORAVENCER</div>
+  <h1 class="fu d2" style="font-size:clamp(2.2rem,4vw,3.8rem);">Sua marca tem<br><span class="b">anos de história.</span><br>O marketplace tem<br><span class="g">milhões de clientes novos.</span></h1>
+  <div class="divider fu d3"></div>
+  <div class="brand-story fu d3">Como o <strong>mico-leão-dourado</strong> — força do leão, resiliência do primata, raiz 100% brasileira.<br>A Rosália Lab carrega esse DNA em cada operação que constrói.</div>
+  <button class="cta-btn fu d4" onclick="window.open('https://wa.me/5511947097878','_blank')">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+    Quero dar o próximo passo
+  </button>
+  <div class="val-badge fu d4">⏳ Proposta válida até <strong>27 de Maio de 2026</strong> · Vagas limitadas por cohort</div>
+  <div class="contacts fu d5">
+    <div class="ci"><span>📱</span> +55 11 94709-7878</div>
+    <div class="ci"><span>✉️</span> contato@rosalialab.com.br</div>
+    <div class="ci"><span>🌐</span> www.rosalialab.com.br</div>
+  </div>
+  <div class="hash fu d5">#BORAVENCER</div>
+</div>
+
+</div><!-- /deck -->
+
+<div class="nav">
+  <button class="nbtn" id="prev">←</button>
+  <div class="ndots" id="dots"></div>
+  <div class="ncnt"><b id="cur">1</b> / <span id="tot">13</span></div>
+  <button class="nbtn" id="next">→</button>
+</div>
+
+<script>
+/* ── PARTICLES ── */
+const canvas=document.getElementById('bgCanvas'),ctx=canvas.getContext('2d');
+let W,H,particles=[],mouse={x:W/2,y:H/2},frameCount=0;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;}
+resize();
+window.addEventListener('resize',()=>{clearTimeout(window._rt);window._rt=setTimeout(resize,200);});
+document.addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY;},{passive:true});
+const COLS=['rgba(20,154,255,','rgba(143,43,238,','rgba(249,182,13,'];
+class P{
+  constructor(){this.reset(true);}
+  reset(init){
+    this.x=Math.random()*W;this.y=Math.random()*H;
+    this.vx=(Math.random()-.5)*.28;this.vy=(Math.random()-.5)*.28;
+    this.r=Math.random()*1.2+.3;this.alpha=Math.random()*.3+.06;
+    this.col=COLS[Math.floor(Math.random()*3)];
+    this.life=init?Math.random()*200:0;
+    this.maxLife=Math.random()*260+160;
+  }
+  update(){
+    this.x+=this.vx;this.y+=this.vy;this.life++;
+    this.vx*=.9995;this.vy*=.9995;
+    if(this.x<0||this.x>W||this.y<0||this.y>H||this.life>this.maxLife)this.reset(false);
+  }
+  draw(){
+    const f=this.life<40?this.life/40:this.life>this.maxLife-40?(this.maxLife-this.life)/40:1;
+    ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+    ctx.fillStyle=this.col+(this.alpha*f)+')';ctx.fill();
+  }
+}
+for(let i=0;i<70;i++)particles.push(new P());
+
+function drawBg(){
+  ctx.fillStyle='#080818';ctx.fillRect(0,0,W,H);
+  const g1=ctx.createRadialGradient(W*.85,H*.15,0,W*.85,H*.15,W*.42);
+  g1.addColorStop(0,'rgba(93,0,152,.2)');g1.addColorStop(1,'transparent');
+  ctx.fillStyle=g1;ctx.fillRect(0,0,W,H);
+  const g2=ctx.createRadialGradient(W*.1,H*.85,0,W*.1,H*.85,W*.38);
+  g2.addColorStop(0,'rgba(20,154,255,.1)');g2.addColorStop(1,'transparent');
+  ctx.fillStyle=g2;ctx.fillRect(0,0,W,H);
+}
+
+// Only draw connections every 2 frames, max 40 pairs checked
+function drawConns(){
+  if(frameCount%2!==0)return;
+  const max=Math.min(particles.length,40);
+  for(let i=0;i<max;i++)for(let j=i+1;j<max;j++){
+    const dx=particles[i].x-particles[j].x,dy=particles[i].y-particles[j].y,d=dx*dx+dy*dy;
+    if(d<8100){// 90^2
+      ctx.beginPath();ctx.moveTo(particles[i].x,particles[i].y);
+      ctx.lineTo(particles[j].x,particles[j].y);
+      ctx.strokeStyle=`rgba(20,154,255,${.045*(1-Math.sqrt(d)/90)})`;
+      ctx.lineWidth=.4;ctx.stroke();
+    }
+  }
+}
+
+let bgRunning=false;
+function startBg(){
+  if(bgRunning)return;bgRunning=true;
+  (function loop(){
+    frameCount++;
+    drawBg();drawConns();
+    particles.forEach(p=>{p.update();p.draw();});
+    requestAnimationFrame(loop);
+  })();
+}
+// Defer background start so first slide renders immediately
+setTimeout(startBg, 100);
+
+/* ── RADAR CANVAS ── */
+let radarAngle=0, radarActive=false;
+function drawRadarFrame(rx,cx,cy,maxR,vals,labels,axes){
+  rx.clearRect(0,0,200,200);
+  [1,.75,.5,.25].forEach(f=>{rx.beginPath();rx.arc(cx,cy,maxR*f,0,Math.PI*2);rx.strokeStyle=`rgba(20,154,255,${.12+f*.07})`;rx.lineWidth=1;rx.stroke();});
+  for(let i=0;i<axes;i++){const a=i*(Math.PI*2/axes)-Math.PI/2;rx.beginPath();rx.moveTo(cx,cy);rx.lineTo(cx+Math.cos(a)*maxR,cy+Math.sin(a)*maxR);rx.strokeStyle='rgba(20,154,255,.12)';rx.lineWidth=1;rx.stroke();}
+  rx.beginPath();vals.forEach((v,i)=>{const a=i*(Math.PI*2/axes)-Math.PI/2,x=cx+Math.cos(a)*maxR*v,y=cy+Math.sin(a)*maxR*v;i===0?rx.moveTo(x,y):rx.lineTo(x,y);});rx.closePath();rx.fillStyle='rgba(20,154,255,.12)';rx.fill();rx.strokeStyle='rgba(20,154,255,.6)';rx.lineWidth=1.5;rx.stroke();
+  vals.forEach((v,i)=>{const a=i*(Math.PI*2/axes)-Math.PI/2,x=cx+Math.cos(a)*maxR*v,y=cy+Math.sin(a)*maxR*v;rx.beginPath();rx.arc(x,y,3,0,Math.PI*2);rx.fillStyle='#149AFF';rx.fill();const lx=cx+Math.cos(a)*(maxR+14),ly=cy+Math.sin(a)*(maxR+14);rx.fillStyle='rgba(244,244,244,.55)';rx.font='bold 9px Poppins';rx.textAlign='center';rx.fillText(labels[i],lx,ly+3);});
+  rx.save();rx.translate(cx,cy);
+  const sg=rx.createLinearGradient(0,0,Math.cos(radarAngle)*maxR,Math.sin(radarAngle)*maxR);
+  sg.addColorStop(0,'rgba(20,154,255,0)');sg.addColorStop(1,'rgba(20,154,255,.22)');
+  rx.beginPath();rx.moveTo(0,0);rx.arc(0,0,maxR,radarAngle-0.55,radarAngle);rx.closePath();rx.fillStyle=sg;rx.fill();rx.restore();
+  radarAngle+=0.022;
+}
+function startRadar(){
+  if(radarActive)return; radarActive=true;
+  const rc=document.getElementById('radarCanvas');
+  if(!rc)return;
+  const rx=rc.getContext('2d'),cx=100,cy=100,maxR=80,axes=6;
+  const vals=[.92,.78,.68,.95,.85,.88],labels=['ML','Shopee','TikTok','Ads','SEO','BI'];
+  (function loop(){if(!radarActive)return;drawRadarFrame(rx,cx,cy,maxR,vals,labels,axes);requestAnimationFrame(loop);})();
+}
+function stopRadar(){radarActive=false;}
+
+/* ── SLIDES ── */
+const slides=document.querySelectorAll('.slide'),dotsEl=document.getElementById('dots'),prevBtn=document.getElementById('prev'),nextBtn=document.getElementById('next'),curEl=document.getElementById('cur'),totEl=document.getElementById('tot'),progEl=document.getElementById('prog');
+let cur=0;const total=slides.length;totEl.textContent=total;
+slides.forEach((_,i)=>{const d=document.createElement('div');d.className='ndot'+(i===0?' on':'');d.onclick=()=>go(i);dotsEl.appendChild(d);});
+
+function go(n){
+  if(n<0||n>=total)return;
+  const prev=cur;slides[prev].classList.remove('active');slides[prev].classList.add('exit');
+  setTimeout(()=>slides[prev].classList.remove('exit'),400);
+  cur=n;slides[cur].classList.add('active');
+  runCounters(slides[cur]);
+  if(cur===1){startRadar();}else{stopRadar();}
+  if(cur===7)startDot();
+  if(cur===10)animBars();
+  document.querySelectorAll('.ndot').forEach((d,i)=>d.classList.toggle('on',i===cur));
+  curEl.textContent=cur+1;progEl.style.width=((cur+1)/total*100)+'%';
+  prevBtn.disabled=cur===0;nextBtn.disabled=cur===total-1;
+}
+prevBtn.onclick=()=>go(cur-1);nextBtn.onclick=()=>go(cur+1);
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key==='ArrowDown')go(cur+1);if(e.key==='ArrowLeft'||e.key==='ArrowUp')go(cur-1);});
+let tx=0;document.addEventListener('touchstart',e=>tx=e.touches[0].clientX);document.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>48)go(cur+(dx<0?1:-1));});
+
+/* ── COUNTERS ── */
+function runCounters(slide){slide.querySelectorAll('.counter-el').forEach(el=>{const target=parseFloat(el.dataset.target),dec=parseInt(el.dataset.dec||0),prefix=el.dataset.prefix!==undefined?el.dataset.prefix:'+',suffix=el.dataset.suffix||'',dur=1400,start=performance.now();(function tick(now){const p=Math.min((now-start)/dur,1),ease=p===1?1:1-Math.pow(2,-10*p),val=target*ease;el.textContent=prefix+val.toFixed(dec)+suffix;if(p<1)requestAnimationFrame(tick);})(performance.now());});}
+
+/* ── INFINITY DOT ── */
+let dotRunning=false;
+function startDot(){
+  if(dotRunning)return;dotRunning=true;
+  const dot=document.getElementById('dot');let t=0;
+  (function animDot(){
+    if(cur!==7){dotRunning=false;return;}
+    t+=0.018;
+    const la=112,lb=47,lcx=120,lcy=60,denom=1+Math.sin(t)*Math.sin(t);
+    const sx=lcx+(la*Math.cos(t))/denom,sy=lcy+(lb*Math.sin(t)*Math.cos(t))/denom;
+    const wrap=document.querySelector('#s8 .inf-wrap');
+    if(!wrap){dotRunning=false;return;}
+    const rect=wrap.getBoundingClientRect();
+    dot.style.left=(sx*(rect.width/240))+'px';dot.style.top=(sy*(rect.height/120))+'px';
+    const prog=(t%(Math.PI*2))/(Math.PI*2);
+    const cr=Math.round(20+(143-20)*prog),cg=Math.round(154+(43-154)*prog),cb=Math.round(255+(238-255)*prog);
+    dot.style.background=`rgb(${cr},${cg},${cb})`;
+    dot.style.boxShadow=`0 0 10px rgba(${cr},${cg},${cb},.9),0 0 20px rgba(${cr},${cg},${cb},.5)`;
+    requestAnimationFrame(animDot);
+  })();
+}
+
+/* ── TIME BARS ── */
+function animBars(){
+  setTimeout(()=>{
+    const rb=document.getElementById('redBar');
+    const bb=document.getElementById('blueBar');
+    if(rb)rb.style.width='90%';
+    if(bb)bb.style.width='15%';
+  },400);
+}
+
+progEl.style.width=(1/total*100)+'%';prevBtn.disabled=true;
+</script>
+</body>
+</html>
